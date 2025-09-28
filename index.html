@@ -101,7 +101,6 @@
 
         main.swiper-container {
             flex-grow: 1;
-            /* FIX: Properti ini penting agar anak flexbox (yaitu swiper-slide) tahu batas tingginya dan bisa scroll */
             min-height: 0;
         }
         .swiper-wrapper {
@@ -571,8 +570,14 @@
                                 <h1>Selamat Pagi, Fathur!</h1>
                                 <p>Siap untuk hari yang produktif?</p>
                                 <div class="schedule-card">
-                                    <div><p style="font-size: 1.125rem; font-weight: 700; margin:0;">Basis Data</p><p style="font-size: 0.875rem; opacity: 0.8; margin:0;">Gedung C, Ruang 301</p></div>
-                                    <div style="text-align: right;"><p style="font-size: 1.125rem; font-weight: 700; margin:0;">13:00</p><p style="font-size: 0.875rem; opacity: 0.8; margin:0;">60 menit lagi</p></div>
+                                    <div>
+                                        <p id="next-event-title" style="font-size: 1.125rem; font-weight: 700; margin:0;"></p>
+                                        <p id="next-event-location" style="font-size: 0.875rem; opacity: 0.8; margin:0;"></p>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <p id="next-event-time" style="font-size: 1.125rem; font-weight: 700; margin:0;"></p>
+                                        <p id="next-event-countdown" style="font-size: 0.875rem; opacity: 0.8; margin:0;"></p>
+                                    </div>
                                 </div>
                             </div>
                             <div style="padding: 0 1.5rem;">
@@ -599,8 +604,8 @@
                                         <div style="display: flex; align-items: center; gap: 1rem;">
                                             <div style="padding: 0.75rem; background-color: var(--accent); border-radius: 0.5rem;"><i data-lucide="piggy-bank" style="color: var(--primary-dark);"></i></div>
                                             <div style="flex-grow: 1;">
-                                                <p id="savings-target-name-display" style="font-weight: 600; margin:0;">Tabungan Laptop Baru</p>
-                                                <p id="savings-progress-text" style="font-size: 0.875rem; color: var(--text-light-secondary); margin:0;">Rp 4.5Jt / Rp 12Jt</p>
+                                                <p id="savings-target-name-display" style="font-weight: 600; margin:0;"></p>
+                                                <p id="savings-progress-text" style="font-size: 0.875rem; color: var(--text-light-secondary); margin:0;"></p>
                                                 <div class="progress-bar-container"><div id="savings-progress-bar" class="progress-bar"></div></div>
                                             </div>
                                         </div>
@@ -1017,6 +1022,7 @@
                 loadBudget();
                 initializeNotepad();
                 initializeSchedule();
+                updateHomepageSchedule();
             }
 
             // --- Format Mata Uang Helper ---
@@ -1209,9 +1215,55 @@
                 schedules[currentDay].push(newSchedule);
                 localStorage.setItem('ascenda-schedules', JSON.stringify(schedules));
                 renderSchedule(currentDay);
+                updateHomepageSchedule(); // Update homepage card
                 addScheduleForm.reset();
                 closeModal(addScheduleModal);
             });
+
+            function updateHomepageSchedule() {
+                const now = new Date();
+                const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                const currentDayKey = days[now.getDay()].toLowerCase();
+                const todaySchedules = schedules[currentDayKey] || [];
+
+                const upcomingEvents = todaySchedules
+                    .filter(event => event.startTime > currentTime)
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+                const titleEl = document.getElementById('next-event-title');
+                const locationEl = document.getElementById('next-event-location');
+                const timeEl = document.getElementById('next-event-time');
+                const countdownEl = document.getElementById('next-event-countdown');
+
+                if (upcomingEvents.length > 0) {
+                    const nextEvent = upcomingEvents[0];
+                    const [eventHours, eventMinutes] = nextEvent.startTime.split(':');
+                    const eventDate = new Date();
+                    eventDate.setHours(eventHours, eventMinutes, 0, 0);
+                    
+                    let diffMinutes = Math.round((eventDate - now) / 60000);
+                    let countdownText = '';
+                    if (diffMinutes < 1) {
+                         countdownText = 'Sekarang';
+                    } else if (diffMinutes < 60) {
+                        countdownText = `${diffMinutes} menit lagi`;
+                    } else {
+                        const diffHours = Math.floor(diffMinutes / 60);
+                        const remMinutes = diffMinutes % 60;
+                        countdownText = `${diffHours}j ${remMinutes}m lagi`;
+                    }
+                    
+                    titleEl.textContent = nextEvent.title;
+                    locationEl.textContent = nextEvent.location;
+                    timeEl.textContent = nextEvent.startTime;
+                    countdownEl.textContent = countdownText;
+                } else {
+                    titleEl.textContent = "Tidak ada jadwal lagi";
+                    locationEl.textContent = "Nikmati waktumu!";
+                    timeEl.textContent = "✓";
+                    countdownEl.textContent = "Selesai untuk hari ini";
+                }
+            }
 
             // --- Logika Olahraga ---
             const workoutCards = document.querySelectorAll('.workout-card');
@@ -1280,7 +1332,6 @@
                 if (newName && !isNaN(newTargetAmount) && newTargetAmount > 0) {
                     savingsTargetName = newName;
                     targetSavings = newTargetAmount;
-                    // Reset current savings if target is lowered below current
                     if(currentSavings > targetSavings) {
                         currentSavings = 0;
                         localStorage.setItem('ascenda-current-savings', 0);
